@@ -4,13 +4,18 @@ import android.*;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
 import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationListener;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
+import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -27,11 +32,15 @@ import com.google.android.gms.maps.model.MarkerOptions;
 /**
  * Created by ksychoo on 17.08.16.
  */
-public class MapViewFragment extends Fragment implements OnMapReadyCallback, GoogleMap.OnMarkerClickListener {
+public class MapViewFragment extends Fragment implements OnMapReadyCallback, GoogleMap.OnMarkerClickListener, LocationListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
     MapView mMapView;
     private GoogleMap googleMap;
-    Marker mMarker;
+    Marker mMarker, shopMarker;
+    private GoogleApiClient mGoogleApiClient;
+
+    private LatLng myLocation;
+    private LocationListener myLocationListener;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -39,6 +48,15 @@ public class MapViewFragment extends Fragment implements OnMapReadyCallback, Goo
         // inflat and return the layout
         View v = inflater.inflate(R.layout.fragment_map, container,
                 false);
+
+        if (mGoogleApiClient == null) {
+            mGoogleApiClient = new GoogleApiClient.Builder(getContext())
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .addApi(LocationServices.API)
+                    .build();
+        }
+
         mMapView = (MapView) v.findViewById(R.id.mapView);
         mMapView.onCreate(savedInstanceState);
 
@@ -58,6 +76,12 @@ public class MapViewFragment extends Fragment implements OnMapReadyCallback, Goo
     }
 
     @Override
+    public void onStart() {
+        mGoogleApiClient.connect();
+        super.onStart();
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
         mMapView.onResume();
@@ -71,6 +95,7 @@ public class MapViewFragment extends Fragment implements OnMapReadyCallback, Goo
 
     @Override
     public void onDestroy() {
+        mGoogleApiClient.disconnect();
         super.onDestroy();
         mMapView.onDestroy();
     }
@@ -83,20 +108,20 @@ public class MapViewFragment extends Fragment implements OnMapReadyCallback, Goo
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
+
         this.googleMap = googleMap;
-        double latitude = 17.385044;
-        double longitude = 78.486671;
-        // create marker
-        MarkerOptions marker = new MarkerOptions().position(
-                new LatLng(latitude, longitude)).title("Hello Maps");
 
-        // Changing marker icon
-        marker.icon(BitmapDescriptorFactory
-                .defaultMarker(BitmapDescriptorFactory.HUE_ROSE));
-
-        // adding marker
-        mMarker = this.googleMap.addMarker(marker);
         this.googleMap.setOnMarkerClickListener(this);
+
+        if (ActivityCompat.checkSelfPermission(getContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getContext(), android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+
+        this.googleMap.setMyLocationEnabled(true);
+        Location lastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+        Shop shop = new Shop(new LatLng(lastLocation.getLatitude(), lastLocation.getLongitude()));
+
+        shopMarker = googleMap.addMarker(shop.getMarkerOptions());
     }
 
     @Override
@@ -107,5 +132,40 @@ public class MapViewFragment extends Fragment implements OnMapReadyCallback, Goo
         }
 
         return true;
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+        myLocation = new LatLng(location.getLatitude(), location.getLongitude());
+    }
+
+    @Override
+    public void onStatusChanged(String provider, int status, Bundle extras) {
+
+    }
+
+    @Override
+    public void onProviderEnabled(String provider) {
+
+    }
+
+    @Override
+    public void onProviderDisabled(String provider) {
+
+    }
+
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+
+    }
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+
     }
 }
