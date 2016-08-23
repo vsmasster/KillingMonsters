@@ -1,5 +1,7 @@
 package com.example.ksychoo.killingmonsters;
 
+import android.location.Location;
+
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 
@@ -8,24 +10,26 @@ import com.google.android.gms.maps.model.Marker;
  */
 public class Point {
     private String mLabel;
-    private LatLng mLocation;
+    private Location mLocation;
     private String mFragment;
 
-    public Point(String label, LatLng location, String fragment) {
+    public Point(String label, double lat, double lng, String fragment) {
         mLabel = label;
-        mLocation = location;
+        mLocation = new Location("");
+        mLocation.setLatitude(lat);
+        mLocation.setLongitude(lng);
         mFragment = fragment;
     }
 
     public Class<?> getActionFragment() throws ClassNotFoundException{
-        return Class.forName("com.example.ksychoo.killingmonsters" + mFragment);
+        return Class.forName("com.example.ksychoo.killingmonsters." + mFragment);
     }
 
     public String getLabel() {
         return mLabel;
     }
 
-    public LatLng getLocation() {
+    public Location getLocation() {
         return mLocation;
     }
 }
