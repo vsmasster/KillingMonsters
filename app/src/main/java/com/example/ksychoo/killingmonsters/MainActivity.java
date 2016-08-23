@@ -30,7 +30,8 @@ public class MainActivity extends FragmentActivity {
 
     private static final String[] LOCATION_PERMS={
             Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.INTERNET
     };
 
     @Override
@@ -48,10 +49,14 @@ public class MainActivity extends FragmentActivity {
         super.onDestroy();
     }
 
-    public void switchFragments() {
+    public void switchFragments(String fragmentName) {
         FragmentTransaction transaction = getFragmentManager().beginTransaction();
-
-        transaction.replace(R.id.container, new BattleFragment());
+        try {
+            Class<?> cl = Class.forName("com.example.ksychoo.killingmonsters." + fragmentName);
+            transaction.replace(R.id.container, (Fragment) cl.getConstructors()[0].newInstance());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         transaction.commit();
     }

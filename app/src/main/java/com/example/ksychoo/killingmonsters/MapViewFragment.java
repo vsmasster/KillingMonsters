@@ -3,9 +3,13 @@ package com.example.ksychoo.killingmonsters;
 import android.*;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
+import android.content.Context;
 import android.content.pm.PackageManager;
+import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
+import android.location.LocationManager;
+import android.location.LocationProvider;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -15,8 +19,17 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
+import com.android.volley.DefaultRetryPolicy;
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
+import com.google.android.gms.appdatasearch.GetRecentContextCall;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -36,11 +49,13 @@ public class MapViewFragment extends Fragment implements OnMapReadyCallback, Goo
 
     MapView mMapView;
     private GoogleMap googleMap;
-    Marker mMarker, shopMarker;
+    Marker mMarker;
     private GoogleApiClient mGoogleApiClient;
 
     private LatLng myLocation;
-    private LocationListener myLocationListener;
+    private LocationManager locationManager;
+    private String locationProvider;
+    private String fragmentName;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -69,9 +84,50 @@ public class MapViewFragment extends Fragment implements OnMapReadyCallback, Goo
         }
 
         mMapView.getMapAsync(this);
-        // latitude and longitude
 
-        // Perform any camera updates here
+        RequestQueue queue = Volley.newRequestQueue(getContext());
+
+        StringRequest stringRequest = new StringRequest(Request.Method.GET, "http://192.168.1.106:8000",
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        Toast.makeText(getContext(), "Got answer: " + response, Toast.LENGTH_LONG).show();
+                        fragmentName = response.split(" ")[2];
+                        LatLng latLng = new LatLng(Double.parseDouble(response.split(" ")[0]), Double.parseDouble(response.split(" ")[1]));
+                        MarkerOptions markerOptions = new MarkerOptions().position(latLng).title("Sample marker");
+                        mMarker = googleMap.addMarker(markerOptions);
+
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Toast.makeText(getContext(), "Connection failed: " + error.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
+        stringRequest.setRetryPolicy(new DefaultRetryPolicy(100000, DefaultRetryPolicy.DEFAULT_MAX_RETRIES, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
+        queue.add(stringRequest);
+
+        this.locationManager = (LocationManager) getActivity().getSystemService(Context.LOCATION_SERVICE);
+
+        Criteria criteria = new Criteria();
+
+        this.locationProvider = locationManager.getBestProvider(criteria, false);
+
+        if (ActivityCompat.checkSelfPermission(getContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getContext(), android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return null;
+        }
+
+        this.locationManager.requestLocationUpdates(this.locationProvider, 400, 1, this);
+
+        Location location = locationManager.getLastKnownLocation(locationProvider);
+
         return v;
     }
 
@@ -118,25 +174,46 @@ public class MapViewFragment extends Fragment implements OnMapReadyCallback, Goo
         }
 
         this.googleMap.setMyLocationEnabled(true);
-        Location lastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-        Shop shop = new Shop(new LatLng(lastLocation.getLatitude(), lastLocation.getLongitude()));
-
-        shopMarker = googleMap.addMarker(shop.getMarkerOptions());
     }
 
     @Override
     public boolean onMarkerClick(Marker marker) {
-        if (marker.equals(mMarker)){
+        if (marker.equals(mMarker)) {
             Toast.makeText(getContext(), "Monster clicked", Toast.LENGTH_LONG).show();
-            ((MainActivity)getActivity()).switchFragments();
+            ((MainActivity) getActivity()).switchFragments(fragmentName);
         }
 
         return true;
     }
 
     @Override
+    public void onConnected(@Nullable Bundle bundle) {
+        if (ActivityCompat.checkSelfPermission(getContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getContext(), android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+
+    }
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+
+    }
+
+    @Override
     public void onLocationChanged(Location location) {
         myLocation = new LatLng(location.getLatitude(), location.getLongitude());
+        Toast.makeText(getContext(), "Location changed", Toast.LENGTH_LONG).show();
     }
 
     @Override
@@ -151,21 +228,6 @@ public class MapViewFragment extends Fragment implements OnMapReadyCallback, Goo
 
     @Override
     public void onProviderDisabled(String provider) {
-
-    }
-
-    @Override
-    public void onConnected(@Nullable Bundle bundle) {
-
-    }
-
-    @Override
-    public void onConnectionSuspended(int i) {
-
-    }
-
-    @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
 
     }
 }
